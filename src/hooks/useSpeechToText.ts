@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+/** Local transcription only (Web Speech API). The backend receives plain text — no cloud ASR. */
+
 type SR = {
   start: () => void;
   stop: () => void;

@@ -61,6 +61,8 @@ export type SendMessageInput = {
   attachment?: AttachmentMeta;
   command?: boolean;
   lang?: string;
+  /** Stable id for getUserMemory and related tools (defaults to "anonymous" on the server). */
+  userId?: string;
 };
 
 export type SendMessageResult = {
