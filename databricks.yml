@@ -1,0 +1,21 @@
+# Declarative bundle for Databricks Apps (deploy with: databricks apps deploy)
+# Uses the default CLI profile when you omit --profile (see ~/.databrickscfg [DEFAULT]).
+bundle:
+  name: rail_saathi_chat
+
+resources:
+  apps:
+    rail_saathi_chat:
+      name: rail-saathi-chat
+      description: Rail Saathi chat — TanStack Start SSR frontend
+      source_code_path: .
+      config:
+        command:
+          - npm
+          - run
+          - databricks:start
+        # Set SARVAM_API_KEY in the Databricks App UI (Secrets) or add env entries with value_from.
+
+targets:
+  dev:
+    default: true

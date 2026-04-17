@@ -6,4 +6,7 @@
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
-export default defineConfig();
+// Databricks Apps (and other Node hosts) need a Node SSR bundle, not Cloudflare Workers.
+export default defineConfig({
+  cloudflare: false,
+});
