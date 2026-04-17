@@ -14,7 +14,7 @@ resources:
           - npm
           - run
           - databricks:start
-        # Set SARVAM_API_KEY in the Databricks App UI (Secrets) or add env entries with value_from.
+        # The Node SSR runtime loads SARVAM_API_KEY from the bundled .env file.
 
 targets:
   dev:

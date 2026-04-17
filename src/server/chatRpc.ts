@@ -24,6 +24,7 @@ export const runOrchestration = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const text = data.text.trim();
     if (!getSarvamApiKey()) {
+      console.warn("[chatRpc] SARVAM_API_KEY is unavailable; serving stub response");
       return stubNaturalLanguageResponse({ text, lang: data.lang });
     }
 
@@ -31,7 +32,8 @@ export const runOrchestration = createServerFn({ method: "POST" })
       const intent = await classifyIntent(text);
       const payload = await runOrchestrationStage2(text, intent, data.userId ?? "anonymous");
       return orchestratedPayloadToSendResult(payload);
-    } catch {
+    } catch (error) {
+      console.error("[chatRpc] Orchestration failed; serving stub response", error);
       return stubNaturalLanguageResponse({ text, lang: data.lang });
     }
   });

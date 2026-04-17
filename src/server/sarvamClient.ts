@@ -1,26 +1,53 @@
-const SARVAM_CHAT_URL = "https://api.sarvam.ai/v1/chat/completions";
+import "dotenv/config";
+import { SarvamAIClient, SarvamAIError } from "sarvamai";
+import type { SarvamAI } from "sarvamai";
 
 export type SarvamMessage = { role: "system" | "user" | "assistant"; content: string };
 
+function readEnv(name: string): string | undefined {
+  if (typeof process === "undefined") return undefined;
+  const value = process.env[name];
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 export function getSarvamApiKey(): string | undefined {
-  return typeof process !== "undefined" ? process.env.SARVAM_API_KEY : undefined;
+  return readEnv("SARVAM_API_KEY");
 }
 
 export function getRouterModel(): string {
-  return process.env.SARVAM_MODEL_ROUTER ?? "sarvam-30b";
+  return readEnv("SARVAM_MODEL_ROUTER") ?? "sarvam-30b";
 }
 
 export function getHeavyModel(): string {
-  return process.env.SARVAM_MODEL_HEAVY ?? "sarvam-105b";
+  return readEnv("SARVAM_MODEL_HEAVY") ?? "sarvam-105b";
 }
 
 type ChatCompletionBody = {
   model: string;
-  messages: SarvamMessage[] | Record<string, unknown>[];
+  messages: Array<SarvamMessage | Record<string, unknown>>;
   temperature?: number;
   tools?: unknown[];
   tool_choice?: unknown;
 };
+
+let cachedClient: SarvamAIClient | undefined;
+
+function getSarvamClient(): SarvamAIClient {
+  if (cachedClient) return cachedClient;
+
+  const key = getSarvamApiKey();
+  if (!key) {
+    throw new Error("SARVAM_API_KEY is not set");
+  }
+
+  cachedClient = new SarvamAIClient({
+    apiSubscriptionKey: key,
+  });
+
+  return cachedClient;
+}
 
 /**
  * OpenAI-style chat completions against Sarvam. Returns assistant text (or tool_calls if present).
@@ -29,56 +56,36 @@ export async function sarvamChatCompletion(body: ChatCompletionBody): Promise<{
   content: string;
   toolCalls?: Array<{ id: string; name: string; arguments: string }>;
 }> {
-  const key = getSarvamApiKey();
-  if (!key) {
-    throw new Error("SARVAM_API_KEY is not set");
-  }
-
-  const res = await fetch(SARVAM_CHAT_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  const raw = await res.text();
-  if (!res.ok) {
-    throw new Error(`Sarvam API ${res.status}: ${raw.slice(0, 500)}`);
-  }
-
-  let data: {
-    choices?: Array<{
-      message?: {
-        content?: string | null;
-        tool_calls?: Array<{
-          id: string;
-          type?: string;
-          function: { name: string; arguments: string };
-        }>;
-      };
-    }>;
-  };
   try {
-    data = JSON.parse(raw) as typeof data;
-  } catch {
-    throw new Error("Sarvam API returned non-JSON");
-  }
+    const client = getSarvamClient();
+    const data = await client.chat.completions(body as SarvamAI.ChatCompletionsRequest, {
+      timeoutInSeconds: 60,
+    });
 
-  const msg = data.choices?.[0]?.message;
-  const toolCallsRaw = msg?.tool_calls;
-  if (toolCallsRaw?.length) {
-    return {
-      content: msg?.content ?? "",
-      toolCalls: toolCallsRaw.map((tc) => ({
-        id: tc.id,
-        name: tc.function.name,
-        arguments: tc.function.arguments,
-      })),
-    };
-  }
+    const msg = data.choices?.[0]?.message;
+    const toolCallsRaw = msg?.tool_calls;
+    if (toolCallsRaw?.length) {
+      return {
+        content: msg?.content ?? "",
+        toolCalls: toolCallsRaw.map((tc) => ({
+          id: tc.id,
+          name: tc.function.name,
+          arguments: tc.function.arguments,
+        })),
+      };
+    }
 
-  const content = typeof msg?.content === "string" ? msg.content : "";
-  return { content };
+    const content = typeof msg?.content === "string" ? msg.content : "";
+    return { content };
+  } catch (error) {
+    if (error instanceof SarvamAIError) {
+      throw new Error(
+        `Sarvam SDK ${error.statusCode ?? "unknown"}: ${String(error.body ?? error.message).slice(0, 500)}`,
+      );
+    }
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("Sarvam SDK request failed");
+  }
 }
