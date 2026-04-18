@@ -7,14 +7,14 @@ resources:
   apps:
     rail_saathi_chat:
       name: rail-saathi-chat
-      description: Rail Saathi chat — TanStack Start SSR frontend
+      description: Rail Saathi chat - FastAPI backend serving the built frontend
       source_code_path: .
       config:
         command:
           - npm
           - run
           - databricks:start
-        # The Node SSR runtime loads SARVAM_API_KEY from the bundled .env file.
+        # uv starts FastAPI after building the frontend, and FastAPI serves both UI and API.
 
 targets:
   dev:

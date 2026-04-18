@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "frontend:dev": "vite dev",
+    "backend:dev": "uv run --project backend uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000",
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "start": "node scripts/databricks-serve.mjs",
+    "start": "node scripts/uvicorn-start.mjs",
     "databricks:start": "npm run build && npm run start",
     "preview": "vite preview",
     "lint": "eslint .",

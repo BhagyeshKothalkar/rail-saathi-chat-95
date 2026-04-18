@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   disabled?: boolean;
   placeholder?: string;
-  onSend: (text: string, isCommand: boolean) => void;
+  onSend: (text: string) => void;
   onUpload: (file: File) => void;
 };
 
@@ -35,7 +35,7 @@ export function ChatInput({ disabled, placeholder, onSend, onUpload }: Props) {
   const handleSend = () => {
     const v = value.trim();
     if (!v) return;
-    onSend(v, v.startsWith("/"));
+    onSend(v);
     setValue("");
   };
 

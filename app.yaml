@@ -1,5 +1,5 @@
-# Runtime config for Databricks Apps (used alongside databricks.yml).
-# Port/host are set by the platform via DATABRICKS_APP_PORT; the Node adapter binds 0.0.0.0 in scripts/databricks-serve.mjs.
+# Runtime config for Databricks Apps.
+# The backend serves both the built frontend and the API from one uvicorn process.
 command:
   - npm
   - run

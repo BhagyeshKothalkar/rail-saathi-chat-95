@@ -1,9 +1,7 @@
 import { Paperclip } from "lucide-react";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { TicketCard } from "./TicketCard";
-import { ProgressArtefact } from "./ProgressArtefact";
-import { AlertBubble } from "./AlertBubble";
+import { MessageContentView } from "./MessageContentView";
 import { TypingIndicator } from "./TypingIndicator";
 
 function formatTime(ts: number) {
@@ -13,15 +11,6 @@ function formatTime(ts: number) {
 
 export function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
-
-  // Standalone alert artefacts render full-width without bubble chrome.
-  if (message.artefact?.type === "alert") {
-    return (
-      <div className="flex w-full justify-center">
-        <AlertBubble data={message.artefact} />
-      </div>
-    );
-  }
 
   if (message.pending) {
     return (
@@ -61,12 +50,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
           </div>
         )}
 
-        {message.text && (
-          <div className="whitespace-pre-wrap text-sm leading-snug">{message.text}</div>
-        )}
-
-        {message.artefact?.type === "ticket" && <TicketCard ticket={message.artefact} />}
-        {message.artefact?.type === "progress" && <ProgressArtefact data={message.artefact} />}
+        <MessageContentView content={message.content} />
 
         <div
           className={cn(

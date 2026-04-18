@@ -1,29 +1,31 @@
-/**
- * Client API: routes `/…` slash commands to a fast server handler and everything
- * else through the two-stage Sarvam orchestration pipeline (see `src/server/`).
- */
 import type {
+  AttachmentMeta,
   SendMessageInput,
   SendMessageResult,
   UploadDocumentResult,
-  AttachmentMeta,
 } from "./types";
-import { runOrchestration, runSlashCommand } from "@/server/chatRpc";
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export async function sendMessage(input: SendMessageInput): Promise<SendMessageResult> {
-  const text = (input.text ?? "").trim();
+  const res = await fetch(`${API_BASE_URL}/api/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text: input.text ?? "",
+      lang: input.lang,
+      userId: input.userId,
+    }),
+  });
 
-  if (text.startsWith("/")) {
-    return runSlashCommand({
-      data: { text, lang: input.lang, userId: input.userId },
-    });
+  if (!res.ok) {
+    throw new Error(`Backend request failed: ${res.status}`);
   }
 
-  return runOrchestration({
-    data: { text, lang: input.lang, userId: input.userId },
-  });
+  return (await res.json()) as SendMessageResult;
 }
 
 export async function uploadDocument(

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AttachmentMeta, ChatMessage, UserProfile } from "@/lib/types";
+import type { AttachmentMeta, ChatMessage, MessageContent, UserProfile } from "@/lib/types";
 import { sendMessage, uploadDocument } from "@/lib/api";
 import { loadMessages, loadProfile, saveMessages, saveProfile } from "@/lib/storage";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -12,8 +12,12 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const WELCOME: ChatMessage = {
   id: "welcome",
   role: "ai",
-  text:
-    "Namaste! I'm Rail Saathi 🚆 — ask me to book a ticket, track a train, or predict delays. Type / for power commands, or tap 📎 to upload a ticket.",
+  content: [
+    {
+      type: "text",
+      text: "Namaste! I'm Rail Saathi. Ask me to book a ticket, track a train, or predict delays. Type / for power commands, or tap the attachment button to upload a ticket.",
+    },
+  ],
   createdAt: Date.now(),
 };
 
@@ -38,7 +42,6 @@ export function ChatScreen() {
   });
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Hydrate from IndexedDB.
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -53,29 +56,29 @@ export function ChatScreen() {
     };
   }, []);
 
-  // Persist messages.
   useEffect(() => {
     if (hydrated) void saveMessages(messages);
   }, [messages, hydrated]);
 
-  // Auto-scroll to bottom on new messages.
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   const appendUserText = useCallback(
-    async (text: string, isCommand: boolean) => {
+    async (text: string) => {
+      const userContent: MessageContent[] = [{ type: "text", text }];
       const userMsg: ChatMessage = {
         id: uid(),
         role: "user",
-        text,
+        content: userContent,
         createdAt: Date.now(),
       };
       const pendingId = uid();
       const pending: ChatMessage = {
         id: pendingId,
         role: "ai",
+        content: [],
         pending: true,
         createdAt: Date.now(),
       };
@@ -84,14 +87,12 @@ export function ChatScreen() {
       try {
         const res = await sendMessage({
           text,
-          command: isCommand,
           lang: profile.language,
         });
         const aiMessages: ChatMessage[] = res.messages.map((m) => ({
           id: uid(),
           role: "ai",
-          text: m.text,
-          artefact: m.artefact,
+          content: m.content,
           createdAt: Date.now(),
         }));
         setMessages((prev) => [...prev.filter((m) => m.id !== pendingId), ...aiMessages]);
@@ -101,7 +102,7 @@ export function ChatScreen() {
           {
             id: uid(),
             role: "ai",
-            text: "Sorry — I couldn't reach the server. Please try again.",
+            content: [{ type: "text", text: "Sorry - I couldn't reach the server. Please try again." }],
             createdAt: Date.now(),
           },
         ]);
@@ -110,72 +111,72 @@ export function ChatScreen() {
     [profile.language],
   );
 
-  const handleUpload = useCallback(
-    async (file: File) => {
-      const thumb = await fileToThumb(file);
-      const meta: AttachmentMeta = {
-        name: file.name,
-        mimeType: file.type || "application/octet-stream",
-        sizeBytes: file.size,
-        thumbnailDataUrl: thumb,
-      };
-      const userMsg: ChatMessage = {
-        id: uid(),
-        role: "user",
-        attachment: meta,
-        createdAt: Date.now(),
-      };
-      const pendingId = uid();
-      const pending: ChatMessage = {
-        id: pendingId,
-        role: "ai",
-        pending: true,
-        pendingLabel: "Rail Saathi is reading…",
-        createdAt: Date.now(),
-      };
-      setMessages((prev) => [...prev, userMsg, pending]);
+  const handleUpload = useCallback(async (file: File) => {
+    const thumb = await fileToThumb(file);
+    const meta: AttachmentMeta = {
+      name: file.name,
+      mimeType: file.type || "application/octet-stream",
+      sizeBytes: file.size,
+      thumbnailDataUrl: thumb,
+    };
+    const userMsg: ChatMessage = {
+      id: uid(),
+      role: "user",
+      content: [],
+      attachment: meta,
+      createdAt: Date.now(),
+    };
+    const pendingId = uid();
+    const pending: ChatMessage = {
+      id: pendingId,
+      role: "ai",
+      content: [],
+      pending: true,
+      pendingLabel: "Rail Saathi is reading...",
+      createdAt: Date.now(),
+    };
+    setMessages((prev) => [...prev, userMsg, pending]);
 
-      try {
-        const res = await uploadDocument(file, meta);
-        // Silently cache extracted profile data.
-        if (res.profile) {
-          setProfile((prev) => {
-            const next: UserProfile = {
-              ...prev,
-              pnrs: Array.from(new Set([...(prev.pnrs ?? []), ...(res.profile.pnrs ?? [])])),
-              frequentRoutes: Array.from(
-                new Set([...(prev.frequentRoutes ?? []), ...(res.profile.frequentRoutes ?? [])]),
-              ),
-              language: res.profile.language ?? prev.language,
-            };
-            void saveProfile(next);
-            return next;
-          });
-        }
-        setMessages((prev) => [
-          ...prev.filter((m) => m.id !== pendingId),
-          {
-            id: uid(),
-            role: "ai",
-            text: "I've parsed your ticket — saved for quick access.",
-            artefact: res.ticket,
-            createdAt: Date.now(),
-          },
-        ]);
-      } catch {
-        setMessages((prev) => [
-          ...prev.filter((m) => m.id !== pendingId),
-          {
-            id: uid(),
-            role: "ai",
-            text: "I couldn't read that file. Try a clearer image or PDF.",
-            createdAt: Date.now(),
-          },
-        ]);
+    try {
+      const res = await uploadDocument(file, meta);
+      if (res.profile) {
+        setProfile((prev) => {
+          const next: UserProfile = {
+            ...prev,
+            pnrs: Array.from(new Set([...(prev.pnrs ?? []), ...(res.profile.pnrs ?? [])])),
+            frequentRoutes: Array.from(
+              new Set([...(prev.frequentRoutes ?? []), ...(res.profile.frequentRoutes ?? [])]),
+            ),
+            language: res.profile.language ?? prev.language,
+          };
+          void saveProfile(next);
+          return next;
+        });
       }
-    },
-    [],
-  );
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== pendingId),
+        {
+          id: uid(),
+          role: "ai",
+          content: [
+            { type: "text", text: "I've parsed your ticket and saved it for quick access." },
+            { type: "artefact", artefact: res.ticket },
+          ],
+          createdAt: Date.now(),
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== pendingId),
+        {
+          id: uid(),
+          role: "ai",
+          content: [{ type: "text", text: "I couldn't read that file. Try a clearer image or PDF." }],
+          createdAt: Date.now(),
+        },
+      ]);
+    }
+  }, []);
 
   const placeholder = useMemo(
     () => (online ? "Message Rail Saathi" : "Offline. Showing last saved predictions."),

@@ -32,6 +32,20 @@ export type AlertArtefact = {
 
 export type Artefact = TicketArtefact | ProgressArtefact | AlertArtefact;
 
+export type MessageContent =
+  | {
+      type: "text";
+      text: string;
+    }
+  | {
+      type: "artefact";
+      artefact: Artefact;
+    }
+  | {
+      type: "group";
+      items: MessageContent[];
+    };
+
 export type AttachmentMeta = {
   name: string;
   mimeType: string;
@@ -42,8 +56,7 @@ export type AttachmentMeta = {
 export type ChatMessage = {
   id: string;
   role: "user" | "ai" | "system";
-  text?: string;
-  artefact?: Artefact;
+  content: MessageContent[];
   attachment?: AttachmentMeta;
   createdAt: number;
   pending?: boolean; // for typing indicator messages
@@ -67,8 +80,7 @@ export type SendMessageInput = {
 
 export type SendMessageResult = {
   messages: Array<{
-    text?: string;
-    artefact?: Artefact;
+    content: MessageContent[];
   }>;
 };
 
